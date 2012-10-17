@@ -27,7 +27,7 @@ if(!empty($params[2]))
 }
 
 // Check params
-if(count($params) < 2 || !in_array($mode, array('display', 'dumpkeys', 'stats')))
+if(count($params) < 2 || !in_array($mode, array('display', 'dumpkeys', 'dump', 'settings', 'stats')))
 {
   help();
   exit;
@@ -51,12 +51,20 @@ if (!$fp)
 // Run logic
 switch($mode)
 {
+  case 'settings':
+    settings($fp);
+    break;
+
   case 'stats':
     stats($fp);
     break;
 
   case 'dumpkeys':
     dumpkeys($fp);
+    break;
+
+  case 'dump':
+    dump($fp);
     break;
 
   case 'display':
@@ -72,21 +80,25 @@ exit;
 function help()
 {
   echo <<<HELP
-  Usage: memcached-tool <host[:port] | /path/to/socket> [mode]
+ Usage: memcached-tool <host[:port] | /path/to/socket> [mode]
+
 	memcached-tool localhost:11211 display    # shows slabs information (display is default mode)
 	memcached-tool localhost:11211 stats      # shows general stats
-	memcached-tool localhost:11211 dumpkeys   # dumps only keys
+	memcached-tool localhost:11211 settings   # shows memcached settings
+	memcached-tool localhost:11211 dump   	  # dumps keys and values, values only for non expired keys
+	memcached-tool localhost:11211 dumpkeys   # dumps only keys names
+	
 HELP;
 }
 
 
-function send_and_receice($fp, $command)
+function send_and_receive($fp, $command)
 {
   fwrite($fp, $command."\r\n");
   $result = '';
   while (!feof($fp))
   {
-    $result .= fread($fp, 1);
+    $result .= fgets($fp);
 
     if(strpos($result, 'END'."\r\n") !== FALSE)
       break;
@@ -107,7 +119,7 @@ function slabs_stats($fp)
 {
   $slabs = array();
 
-  $lines = send_and_receice($fp, 'stats slabs');
+  $lines = send_and_receive($fp, 'stats slabs');
   foreach($lines as $line)
   {
     $m = array();
@@ -129,7 +141,7 @@ function slabs_stats($fp)
     }
   }
 
-  $lines = send_and_receice($fp, 'stats items');
+  $lines = send_and_receive($fp, 'stats items');
   foreach($lines as $line)
   {
     if(!trim($line))
@@ -150,6 +162,9 @@ function slabs_stats($fp)
 
   foreach($slabs as $num => $slab) 
   {
+    if($num == 'total')
+      continue;
+
     $slab['age'] = !empty($slab['age']) ? $slab['age'] : 0;
     $slab['number'] = !empty($slab['number']) ? $slab['number'] : 0;
     $slab['evicted'] = !empty($slab['evicted']) ? $slab['evicted'] : 0;
@@ -167,7 +182,7 @@ function display($fp)
 {
   $slabs = slabs_stats($fp);
 
-  print "  #  Item_Size  Max_age   Pages   Count   Full?  Evicted Evict_Time OOM\n";
+  print "  #  Item_Size  Max_age   Pages   Count   Full?  Evicted Evict_Time OOM".PHP_EOL;
   foreach($slabs as $num => $slab) 
   {
     if($num == 'total')
@@ -177,7 +192,7 @@ function display($fp)
     $chunk_size = $chunk_size < 1024 ? $chunk_size.'B' : sprintf("%.1f", $chunk_size/1024).'k';
     $is_slab_full = $slab['free_chunks_end'] == 0 ? "yes" : "no";
 
-    printf("%3d %10s %7ds %7d %7d %7s %8d %10d %3d\n", $num, $chunk_size, $slab['age'], $slab['total_pages'], $slab['number'], $is_slab_full, 
+    printf("%3d %10s %7ds %7d %7d %7s %8d %10d %3d".PHP_EOL, $num, $chunk_size, $slab['age'], $slab['total_pages'], $slab['number'], $is_slab_full, 
       $slab['evicted'], $slab['evicted_time'], $slab['outofmemory']);
   }
 
@@ -187,10 +202,10 @@ function display($fp)
     if($property == 'total_malloced')
     {
       $value = sprintf('%.f', $value / 1024 / 1024);
-      printf("%12s %10.3fM\n", $property, $value);
+      printf("%12s %10.3fM".PHP_EOL, $property, $value);
     }
     else
-      printf("%12s %12s\n", $property, $value);
+      printf("%12s %12s".PHP_EOL, $property, $value);
   }
 }
 
@@ -199,7 +214,7 @@ function stats($fp)
 {
   $stats = array();
 
-  $lines = send_and_receice($fp, 'stats');
+  $lines = send_and_receive($fp, 'stats');
   foreach($lines as $line)
   {
     $m = array();
@@ -212,9 +227,31 @@ function stats($fp)
     }
   }
 
-  printf ("%24s %15s\n", "Field", "Value");
+  printf ("%24s %15s".PHP_EOL, "Field", "Value");
   foreach($stats as $property => $value)
-    printf ("%24s %15s\n", $property, $value);
+    printf ("%24s %15s".PHP_EOL, $property, $value);
+}
+
+function settings($fp)
+{
+  $stats = array();
+
+  $lines = send_and_receive($fp, 'stats settings');
+  foreach($lines as $line)
+  {
+    $m = array();
+    if(preg_match('/^STAT ([^\s]+) ([^\s]+)/', $line, $m))
+    {
+      $property = $m[1];
+      $value = $m[2];
+
+      $stats[$property] = $value;
+    }
+  }
+
+  printf ("%24s %15s".PHP_EOL, "Field", "Value");
+  foreach($stats as $property => $value)
+    printf ("%24s %15s".PHP_EOL, $property, $value);
 }
 
 
@@ -225,7 +262,7 @@ function dumpkeys($fp)
 
   $now = time();
 
-  printf("%-70s %s\n", 'Key', 'Status');
+  printf("      %-40s %s".PHP_EOL, 'Key', 'Status');
   foreach($slabs as $num => $slab) 
   {
     if($num == 'total')
@@ -233,7 +270,7 @@ function dumpkeys($fp)
 
     if($slab['number'])
     {
-      $lines = send_and_receice($fp, "stats cachedump {$num} {$slab['number']}");
+      $lines = send_and_receive($fp, "stats cachedump {$num} {$slab['number']}");
       foreach($lines as $line)
       {
 	$m = array();
@@ -241,11 +278,59 @@ function dumpkeys($fp)
 	{
 	  $key = $m[1];
 	  $expiration_time = $m[2];
-	  $status = $now > $expiration_time ? '[expired]' : '-';
+	  $status = $now > $expiration_time ? '[expired]' : ($expiration_time - $now).'s left';
 
-	  printf("%-70s %s\n", $key, $status);
+	  printf("ITEM  %-40s %s".PHP_EOL, $key, $status);
 	}
       }
     }
   }
 }
+
+function dump($fp)
+{
+  $slabs = slabs_stats($fp);
+  ksort($slabs);
+
+  $now = time();
+
+  printf("      %-40s %s".PHP_EOL, 'Key', 'Status');
+  foreach($slabs as $num => $slab) 
+  {
+    if($num == 'total')
+      continue;
+
+    if($slab['number'])
+    {
+      $lines = send_and_receive($fp, "stats cachedump {$num} {$slab['number']}");
+      foreach($lines as $line)
+      {
+	$m = array();
+	if(preg_match('/^ITEM ([^\s]+) \[.* (\d+) s\]/', $line, $m))
+	{
+	  $key = $m[1];
+	  $expiration_time = $m[2];
+	  $status = $now > $expiration_time ? '[expired]' : ($expiration_time - $now).'s left';
+
+	  printf("ITEM  %-40s %s".PHP_EOL, $key, $status);
+
+	  // Get value
+	  if($expiration_time - $now > 0)
+	  {
+	    $lines = send_and_receive($fp, "get {$key}");
+	    if(count($lines))
+	    {
+	      $info = $lines[0];
+	      $data = $lines[1];
+	      preg_match('/^VALUE ([^\s]+) (\d+) (\d+)/', $info, $m);
+	      $flags = $m[2];
+	      printf("VALUE %-40s flags=%X".PHP_EOL, $key, $flags);
+	      printf("%s".PHP_EOL, $data);
+	    }
+	  }
+	}
+      }
+    }
+  }
+}
+

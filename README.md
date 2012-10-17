@@ -3,7 +3,7 @@ memcached-itool
 
 Improved memcached-tool on PHP
 
-## Environment
+Requirements:
   PHP 5.3
 
 Usage:
