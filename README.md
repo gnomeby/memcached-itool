@@ -14,4 +14,4 @@ PHP 5.3
     memcached-tool localhost:11211 stats      # shows general stats
     memcached-tool localhost:11211 settings   # shows memcached settings
     memcached-tool localhost:11211 dumpkeys   # dumps only keys names and their status
-    memcached-tool localhost:11211 dump   	  # dumps keys and values, values only for non expired keys
+    memcached-tool localhost:11211 dump       # dumps keys and values, values only for non expired keys
