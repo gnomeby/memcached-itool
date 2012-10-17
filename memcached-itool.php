@@ -30,7 +30,7 @@ if(!empty($params[2]))
 }
 
 // Check params
-if(count($params) < 2 || !in_array($mode, array('display', 'dumpkeys', 'dump', 'settings', 'stats', 'sizes')))
+if(count($params) < 2 || !in_array($mode, array('display', 'dumpkeys', 'dump', 'removeexp', 'settings', 'stats', 'sizes')))
 {
   help();
   exit;
@@ -70,6 +70,10 @@ switch($mode)
     dump($fp);
     break;
 
+  case 'removeexp':
+    removeexp($fp);
+    break;
+
   case 'dump':
     dump($fp, DUMPMODE_KEYVALUES);
     break;
@@ -92,9 +96,15 @@ function help()
 	memcached-tool localhost:11211 display    # shows slabs information (display is default mode)
 	memcached-tool localhost:11211 dumpkeys   # dumps only keys names
 	memcached-tool localhost:11211 dump       # dumps keys and values, values only for non expired keys
+	memcached-tool localhost:11211 removeexp  # remove expired keys (you may need run several times)
 	memcached-tool localhost:11211 settings   # shows memcached settings
 	memcached-tool localhost:11211 sizes      # group keys by sizes and show how many we waste memory
 	memcached-tool localhost:11211 stats      # shows general stats
+
+Warning! dumpkeys, dump, removeexp and sizes modes *will* lock up your cache! It iterates over *every item* and examines the size. 
+While the operation is fast, if you have many items you could prevent memcached from serving requests for several seconds.
+
+Warning! dump and removeexp modes influence on memcached internal statistic like *expired_unfetched* and *get_misses*. So we recommend only use it for debugging purposes.
 	
 HELP;
 }
@@ -289,8 +299,6 @@ function dump($fp, $dumpmode = DUMPMODE_ONLYKEYS)
   $slabs = slabs_stats($fp);
   ksort($slabs);
 
-  $now = time();
-
   printf("      %-40s %10s %10s %8s".PHP_EOL, 'Key', 'Status', 'Size', 'Waste');
   foreach($slabs as $num => $slab) 
   {
@@ -307,6 +315,9 @@ function dump($fp, $dumpmode = DUMPMODE_ONLYKEYS)
 	{
 	  $key = $m[1];
 	  $size = $m[2];
+
+	  $now = time();
+
 	  $waste = (1.0 - (float)$size / $slab['chunk_size']) * 100;
 	  $expiration_time = $m[3];
 	  $status = $now > $expiration_time ? '[expired]' : ($expiration_time - $now).'s left';
@@ -362,6 +373,49 @@ function sizes($fp)
       $sizes[$size] = $values;
     }
   }
+}
+
+
+function removeexp($fp)
+{
+  $slabs = slabs_stats($fp);
+  ksort($slabs);
+
+  printf("      %-40s %10s %10s %8s".PHP_EOL, 'Key', 'Status', 'Size', 'Waste');
+  foreach($slabs as $num => $slab) 
+  {
+    if($num == 'total')
+      continue;
+
+    if($slab['number'])
+    {
+      $lines = send_and_receive($fp, "stats cachedump {$num} {$slab['number']}");
+      foreach($lines as $line)
+      {
+	$m = array();
+	if(preg_match('/^ITEM ([^\s]+) \[(.*); (\d+) s\]/', $line, $m))
+	{
+	  $key = $m[1];
+	  $size = $m[2];
+
+	  $now = time();
+
+	  $waste = (1.0 - (float)$size / $slab['chunk_size']) * 100;
+	  $expiration_time = $m[3];
+	  $status = $now > $expiration_time ? '[expired]' : ($expiration_time - $now).'s left';
+
+	  printf("ITEM  %-40s %10s %10s %7.0f%%".PHP_EOL, $key, $status, $size, $waste);
+
+	  // Get value
+	  if($expiration_time - $now < 0)
+	  {
+	    $lines = send_and_receive($fp, "get {$key}");
+	  }
+	}
+      }
+    }
+  }
+
 }
 
 
