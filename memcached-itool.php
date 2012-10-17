@@ -30,7 +30,7 @@ if(!empty($params[2]))
 }
 
 // Check params
-if(count($params) < 2 || !in_array($mode, array('display', 'dumpkeys', 'dump', 'settings', 'stats')))
+if(count($params) < 2 || !in_array($mode, array('display', 'dumpkeys', 'dump', 'settings', 'stats', 'sizes')))
 {
   help();
   exit;
@@ -62,6 +62,10 @@ switch($mode)
     stats($fp);
     break;
 
+  case 'sizes':
+    sizes($fp);
+    break;
+
   case 'dumpkeys':
     dump($fp);
     break;
@@ -86,10 +90,11 @@ function help()
  Usage: memcached-tool <host[:port] | /path/to/socket> [mode]
 
 	memcached-tool localhost:11211 display    # shows slabs information (display is default mode)
-	memcached-tool localhost:11211 stats      # shows general stats
-	memcached-tool localhost:11211 settings   # shows memcached settings
-	memcached-tool localhost:11211 dump   	  # dumps keys and values, values only for non expired keys
 	memcached-tool localhost:11211 dumpkeys   # dumps only keys names
+	memcached-tool localhost:11211 dump       # dumps keys and values, values only for non expired keys
+	memcached-tool localhost:11211 settings   # shows memcached settings
+	memcached-tool localhost:11211 sizes      # group keys by sizes and show how many we waste memory
+	memcached-tool localhost:11211 stats      # shows general stats
 	
 HELP;
 }
@@ -207,7 +212,7 @@ function display($fp)
 {
   $slabs = slabs_stats($fp);
 
-  print "  #  Item_Size  Max_age   Pages   Count   Full?  Evicted Evict_Time OOM     Used   Wasted".PHP_EOL;
+  print "  # Chunk_Size  Max_age   Pages   Count   Full?  Evicted Evict_Time OOM     Used   Wasted".PHP_EOL;
   foreach($slabs as $num => $slab) 
   {
     if($num == 'total')
@@ -324,6 +329,37 @@ function dump($fp, $dumpmode = DUMPMODE_ONLYKEYS)
 	  }
 	}
       }
+    }
+  }
+}
+
+
+function sizes($fp)
+{
+  $sizes = array();
+  $stats = settings_stats($fp);
+
+  printf("%-10s %10s %10s %10s".PHP_EOL, 'Size', 'Items', 'Chunk_Size', 'Wasted');
+
+  $lines = send_and_receive($fp, 'stats sizes');
+  foreach($lines as $line)
+  {
+    $m = array();
+    if(preg_match('/^STAT ([^\s]+) ([^\s]+)/', $line, $m))
+    {
+      $size = $m[1];
+      $values = $m[2];
+
+      for($chunk_size = 96; $chunk_size * $stats['growth_factor'] < $size; $chunk_size *= $stats['growth_factor']);
+      $chunk_size *= $stats['growth_factor'];
+      if($chunk_size * $stats['growth_factor'] > $stats['item_size_max'])
+	$chunk_size = $stats['item_size_max'];
+
+      $wasted = (1.0 - $size / $chunk_size) * 100;
+
+      printf("%-10s %10d %10s %9.0f%%".PHP_EOL, descritive_size($size), $values, descritive_size($chunk_size), $wasted);
+
+      $sizes[$size] = $values;
     }
   }
 }
