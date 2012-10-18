@@ -31,4 +31,5 @@ PHP 5.3
 *Warning!* dumpkeys, dump, removeexp and sizes modes *will* lock up your cache! It iterates over *every item* and examines the size. 
 While the operation is fast, if you have many items you could prevent memcached from serving requests for several seconds.
 
-*Warning!* dump and removeexp modes influence on memcached internal statistic like *expired_unfetched* and *get_misses*. So we recommend only use it for debugging purposes.
+*Warning!* dump and removeexp modes influence on memcached internal statistic like *expired_unfetched*, *get_hits*, *get_misses* and many others.
+So we recommend only use it for debugging purposes.
