@@ -9,6 +9,7 @@ New advantages in comparison with default tool are:
 * *dump* mode doesn''t trigger deletion of expired keys
 * New *removeexp* mode triggers deletion of expired keys
 * New *dumpkeys* mode only shows key names
+* *dump* and *dumpkeys* modes show expiration status: expired, never expired or how many seconds are left
 * New *sizes* mode groups keys by size and shows percent of wasted memory in chunks
 * New *settings* mode shows memcached setting during startup
 
