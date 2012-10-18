@@ -21,7 +21,7 @@ PHP 5.3
 
 ##### Examples
     memcached-tool localhost:11211 display    # shows slabs information (display is default mode)
-    memcached-tool localhost:11211 dumpkeys   # dumps only keys names and their status
+    memcached-tool localhost:11211 dumpkeys   # dumps only keys names and their expiration status
     memcached-tool localhost:11211 dump       # dumps keys and values, values only for non expired keys
     memcached-tool localhost:11211 removeexp  # remove expired keys (you may need run several times)
     memcached-tool localhost:11211 settings   # shows memcached settings

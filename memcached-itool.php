@@ -129,7 +129,7 @@ function send_and_receive($fp, $command)
   $lines = explode("\r\n", $result);
   foreach($lines as $key=>$line)
   {
-    if(!trim($line) || trim($line) == 'END')
+    if(strlen($line) == 0 || trim($line) == 'END')
       unset($lines[$key]);
   }
 
@@ -201,6 +201,27 @@ function slabs_stats($fp)
 }
 
 
+function default_stats($fp)
+{
+  $stats = array();
+
+  $lines = send_and_receive($fp, 'stats');
+  foreach($lines as $line)
+  {
+    $m = array();
+    if(preg_match('/^STAT ([^\s]+) ([^\s]+)/', $line, $m))
+    {
+      $property = $m[1];
+      $value = $m[2];
+
+      $stats[$property] = $value;
+    }
+  }
+
+  return $stats;
+}
+
+
 function settings_stats($fp)
 {
   $stats = array();
@@ -249,15 +270,10 @@ function display($fp)
   }
 
   $stats = settings_stats($fp);
-  if($stats['maxbytes'] >= 48*1024*1024)
-    printf("%-15s %12s".PHP_EOL, 'maxbytes', descritive_size($stats['maxbytes']));
-  else
-  {
-    $pages = 1;
-    for($chunk_size = 96; $chunk_size * $stats['growth_factor'] < $stats['item_size_max']; $chunk_size *= $stats['growth_factor'])
-      $pages++;
-    printf("%-15s %12s (real %s - %s)".PHP_EOL, 'maxbytes', descritive_size($stats['maxbytes']), descritive_size($stats['item_size_max'] * $pages), descritive_size($stats['item_size_max'] * ($pages + $stats['maxbytes'] / $stats['item_size_max'] - 1)));
-  }
+  $pages = 1;
+  for($chunk_size = 96; $chunk_size * $stats['growth_factor'] < $stats['item_size_max']; $chunk_size *= $stats['growth_factor'])
+    $pages++;
+  printf("%-15s %12s (real %s - %s)".PHP_EOL, 'maxbytes', descritive_size($stats['maxbytes']), descritive_size(max($stats['item_size_max'] * $pages, $stats['maxbytes'])), descritive_size($stats['item_size_max'] * ($pages + $stats['maxbytes'] / $stats['item_size_max'] - 1)));
   
   printf("%-15s %12s".PHP_EOL, 'item_size_max', descritive_size($stats['item_size_max']));
   printf("%-15s %12s".PHP_EOL, 'evictions', $stats['evictions']);
@@ -268,20 +284,7 @@ function display($fp)
 
 function stats($fp)
 {
-  $stats = array();
-
-  $lines = send_and_receive($fp, 'stats');
-  foreach($lines as $line)
-  {
-    $m = array();
-    if(preg_match('/^STAT ([^\s]+) ([^\s]+)/', $line, $m))
-    {
-      $property = $m[1];
-      $value = $m[2];
-
-      $stats[$property] = $value;
-    }
-  }
+  $stats = default_stats($fp);
 
   printf ("%24s %15s".PHP_EOL, "Field", "Value");
   foreach($stats as $property => $value)
@@ -301,9 +304,10 @@ function settings($fp)
 function dump($fp, $dumpmode = DUMPMODE_ONLYKEYS)
 {
   $slabs = slabs_stats($fp);
+  $stats = default_stats($fp);
   ksort($slabs);
 
-  printf("      %-40s %10s %10s %8s".PHP_EOL, 'Key', 'Status', 'Size', 'Waste');
+  printf("      %-40s %20s %10s %8s".PHP_EOL, 'Key', 'Expire status', 'Size', 'Waste');
   foreach($slabs as $num => $slab) 
   {
     if($num == 'total')
@@ -324,12 +328,18 @@ function dump($fp, $dumpmode = DUMPMODE_ONLYKEYS)
 
 	  $waste = (1.0 - (float)$size / $slab['chunk_size']) * 100;
 	  $expiration_time = $m[3];
-	  $status = $now > $expiration_time ? '[expired]' : ($expiration_time - $now).'s left';
+	  $status = $expiration_time == $stats['time'] - $stats['uptime'] ? 'never expire' : NULL;
+	  if($expiration_time == $stats['time'] - $stats['uptime'])
+	    $status = '[never expire]';
+	  elseif($now > $expiration_time)
+	    $status = '[expired]';
+	  else
+	    $status = ($expiration_time - $now).'s left';
 
-	  printf("ITEM  %-40s %10s %10s %7.0f%%".PHP_EOL, $key, $status, $size, $waste);
+	  printf("ITEM  %-40s %20s %10s %7.0f%%".PHP_EOL, $key, $status, $size, $waste);
 
 	  // Get value
-	  if($dumpmode == DUMPMODE_KEYVALUES && $expiration_time - $now > 0)
+	  if($dumpmode == DUMPMODE_KEYVALUES && $status != '[expired]')
 	  {
 	    $lines = send_and_receive($fp, "get {$key}");
 	    if(count($lines))
