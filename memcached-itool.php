@@ -19,14 +19,16 @@ $socketpath = NULL;
 $mode = 'display';
 if(!empty($params[1]))
 {
-  list($host, $port) = explode(':', $params[1]);
-  $port = $port ?: 11211;
-  if(strpos($host, '/') === 0)
+  if(strpos($params[1], '/') === 0)
   {
-    $socketpath = $host;
+    $socketpath = $params[1];
     $host = NULL;
     $port = NULL;
   }
+  elseif(strpos($params[1], ':') === 0)
+    list($host, $port) = explode(':', $params[1]);
+  else
+    $host = $params[1];
 }
 if(!empty($params[2]))
 {
