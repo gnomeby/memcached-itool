@@ -1,7 +1,17 @@
 memcached-itool
 ===============
 
-Improved memcached-tool on PHP
+The improved memcached-tool on PHP.
+
+New advantages in comparison with default tool are:
+* *display* mode shows all slabs not only slabs with keys
+* *display* mode also shows percent of wasted memory in chunks
+* *dump* mode doesn''t trigger deletion of expired keys
+* New *removeexp* mode triggers deletion of expired keys
+* New *dumpkeys* mode only shows key names
+* New *sizes* mode groups keys by size and shows percent of wasted memory in chunks
+* New *settings* mode shows memcached setting during startup
+
 
 #### Requirements:
 PHP 5.3
