@@ -330,7 +330,6 @@ function dump($fp, $dumpmode = DUMPMODE_ONLYKEYS)
 
 	  $waste = (1.0 - (float)$size / $slab['chunk_size']) * 100;
 	  $expiration_time = $m[3];
-	  $status = $expiration_time == $stats['time'] - $stats['uptime'] ? 'never expire' : NULL;
 	  if($expiration_time == $stats['time'] - $stats['uptime'])
 	    $status = '[never expire]';
 	  elseif($now > $expiration_time)
@@ -418,12 +417,17 @@ function removeexp($fp)
 
 	  $waste = (1.0 - (float)$size / $slab['chunk_size']) * 100;
 	  $expiration_time = $m[3];
-	  $status = $now > $expiration_time ? '[expired]' : ($expiration_time - $now).'s left';
+	  if($expiration_time == $stats['time'] - $stats['uptime'])
+	    $status = '[never expire]';
+	  elseif($now > $expiration_time)
+	    $status = '[expired]';
+	  else
+	    $status = ($expiration_time - $now).'s left';
 
 	  printf("ITEM  %-40s %10s %10s %7.0f%%".PHP_EOL, $key, $status, $size, $waste);
 
 	  // Get value
-	  if($expiration_time - $now < 0)
+	  if($status == '[expired]')
 	  {
 	    $lines = send_and_receive($fp, "get {$key}");
 	  }
