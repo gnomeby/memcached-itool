@@ -25,7 +25,7 @@ if(!empty($params[1]))
     $host = NULL;
     $port = NULL;
   }
-  elseif(strpos($params[1], ':') === 0)
+  elseif(strpos($params[1], ':') > 0)
     list($host, $port) = explode(':', $params[1]);
   else
     $host = $params[1];
