@@ -317,40 +317,40 @@ function dump($fp, $dumpmode = DUMPMODE_ONLYKEYS)
       $lines = send_and_receive($fp, "stats cachedump {$num} {$slab['number']}");
       foreach($lines as $line)
       {
-	$m = array();
-	if(preg_match('/^ITEM ([^\s]+) \[(.*); (\d+) s\]/', $line, $m))
-	{
-	  $key = $m[1];
-	  $size = $m[2];
+        $m = array();
+        if(preg_match('/^ITEM ([^\s]+) \[(.*); (\d+) s\]/', $line, $m))
+        {
+          $key = $m[1];
+          $size = $m[2];
 
-	  $now = time();
+          $now = time();
 
-	  $waste = (1.0 - (float)$size / $slab['chunk_size']) * 100;
-	  $expiration_time = $m[3];
-	  if($expiration_time == $stats['time'] - $stats['uptime'])
-	    $status = '[never expire]';
-	  elseif($now > $expiration_time)
-	    $status = '[expired]';
-	  else
-	    $status = ($expiration_time - $now).'s left';
+          $waste = (1.0 - (float)$size / $slab['chunk_size']) * 100;
+          $expiration_time = $m[3];
+          if($expiration_time == $stats['time'] - $stats['uptime'])
+            $status = '[never expire]';
+          elseif($now > $expiration_time)
+            $status = '[expired]';
+          else
+            $status = ($expiration_time - $now).'s left';
 
-	  printf("ITEM  %-40s %20s %10s %7.0f%%".PHP_EOL, $key, $status, $size, $waste);
+          printf("ITEM  %-40s %20s %10s %7.0f%%".PHP_EOL, $key, $status, $size, $waste);
 
-	  // Get value
-	  if($dumpmode == DUMPMODE_KEYVALUES && $status != '[expired]')
-	  {
-	    $lines = send_and_receive($fp, "get {$key}");
-	    if(count($lines))
-	    {
-	      $info = $lines[0];
-	      $data = $lines[1];
-	      preg_match('/^VALUE ([^\s]+) (\d+) (\d+)/', $info, $m);
-	      $flags = $m[2];
-	      printf("VALUE %-40s flags=%X".PHP_EOL, $key, $flags);
-	      printf("%s".PHP_EOL, $data);
-	    }
-	  }
-	}
+          // Get value
+          if($dumpmode == DUMPMODE_KEYVALUES && $status != '[expired]')
+          {
+            $lines = send_and_receive($fp, "get {$key}");
+            if(count($lines))
+            {
+              $info = $lines[0];
+              $data = $lines[1];
+              preg_match('/^VALUE ([^\s]+) (\d+) (\d+)/', $info, $m);
+              $flags = $m[2];
+              printf("VALUE %-40s flags=%X".PHP_EOL, $key, $flags);
+              printf("%s".PHP_EOL, $data);
+            }
+          }
+        }
       }
     }
   }
@@ -376,7 +376,7 @@ function sizes($fp)
       for($chunk_size = 96; $chunk_size * $stats['growth_factor'] < $size; $chunk_size *= $stats['growth_factor']);
       $chunk_size *= $stats['growth_factor'];
       if($chunk_size * $stats['growth_factor'] > $stats['item_size_max'])
-	$chunk_size = $stats['item_size_max'];
+        $chunk_size = $stats['item_size_max'];
 
       $wasted = (1.0 - $size / $chunk_size) * 100;
 
@@ -391,6 +391,7 @@ function sizes($fp)
 function removeexp($fp)
 {
   $slabs = slabs_stats($fp);
+  $stats = default_stats($fp);
   ksort($slabs);
 
   printf("      %-40s %10s %10s %8s".PHP_EOL, 'Key', 'Status', 'Size', 'Waste');
@@ -404,31 +405,31 @@ function removeexp($fp)
       $lines = send_and_receive($fp, "stats cachedump {$num} {$slab['number']}");
       foreach($lines as $line)
       {
-	$m = array();
-	if(preg_match('/^ITEM ([^\s]+) \[(.*); (\d+) s\]/', $line, $m))
-	{
-	  $key = $m[1];
-	  $size = $m[2];
+        $m = array();
+        if(preg_match('/^ITEM ([^\s]+) \[(.*); (\d+) s\]/', $line, $m))
+        {
+          $key = $m[1];
+          $size = $m[2];
 
-	  $now = time();
+          $now = time();
 
-	  $waste = (1.0 - (float)$size / $slab['chunk_size']) * 100;
-	  $expiration_time = $m[3];
-	  if($expiration_time == $stats['time'] - $stats['uptime'])
-	    $status = '[never expire]';
-	  elseif($now > $expiration_time)
-	    $status = '[expired]';
-	  else
-	    $status = ($expiration_time - $now).'s left';
+          $waste = (1.0 - (float)$size / $slab['chunk_size']) * 100;
+          $expiration_time = $m[3];
+          if($expiration_time == $stats['time'] - $stats['uptime'])
+            $status = '[never expire]';
+          elseif($now > $expiration_time)
+            $status = '[expired]';
+          else
+            $status = ($expiration_time - $now).'s left';
 
-	  printf("ITEM  %-40s %10s %10s %7.0f%%".PHP_EOL, $key, $status, $size, $waste);
+          printf("ITEM  %-40s %10s %10s %7.0f%%".PHP_EOL, $key, $status, $size, $waste);
 
-	  // Get value
-	  if($status == '[expired]')
-	  {
-	    $lines = send_and_receive($fp, "get {$key}");
-	  }
-	}
+          // Get value
+          if($status == '[expired]')
+          {
+            $lines = send_and_receive($fp, "get {$key}");
+          }
+        }
       }
     }
   }
