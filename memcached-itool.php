@@ -380,7 +380,7 @@ function sizes($fp)
 
       $wasted = (1.0 - $size / $chunk_size) * 100;
 
-      printf("%-10s %10d %10s %9.0f%%".PHP_EOL, descriptive_size($size), $values, descriptive_size($chunk_size), $wasted);
+      printf("%-10s %10d %10s %9.0f%%".PHP_EOL, descriptive_size($size), $values, descriptive_size((int)$chunk_size), $wasted);
 
       $sizes[$size] = $values;
     }
