@@ -90,7 +90,7 @@ def descriptive_size(size):
   if size >= 1024*1024: return '{0:.1f}M'.format(float(size) / (1024*1024))
   if size >= 1024: return '{0:.1f}K'.format(float(size) / 1024)
 
-  return str(size)+'B'
+  return str(int(size))+'B'
 
 
 def get_stats(sp, command = 'stats'):
@@ -162,6 +162,29 @@ def display(sp):
   return
 
 
+def sizes(sp):
+  stats = get_stats(sp, 'stats settings')
+  item_size_max = int(stats['item_size_max'])
+  growth_factor = float(stats['growth_factor'])
+
+  print "{0:10s} {1:>10s} {2:>10s} {3:10s}".format('Size', 'Items', 'Chunk_Size', 'Wasted')
+
+  sizes = get_stats(sp, 'stats sizes')
+  for prop, val in sizes.iteritems():
+    size = int(prop)
+
+    chunk_size = 96.0
+    while chunk_size * growth_factor < size:  chunk_size *= growth_factor
+    chunk_size *= growth_factor
+    if chunk_size * growth_factor > item_size_max:  chunk_size = float(item_size_max)
+
+    wasted = (1.0 - float(size) / chunk_size) * 100;
+    
+    print "{0:10s} {1:10d} {2:>10s} {3:9.0f}%".format(descriptive_size(size), int(val), descriptive_size(chunk_size), wasted)
+
+  return
+
+
 
 # Default values
 host = 'localhost'
@@ -205,6 +228,8 @@ else:
     show_stats(sp)
   elif mode == 'settings':
     show_stats(sp, 'stats settings')
+  elif mode == 'sizes':
+    sizes(sp)
   else:
     display(sp)
 
