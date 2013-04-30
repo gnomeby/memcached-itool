@@ -4,6 +4,7 @@
 import sys
 import socket
 import re
+import time
 
 DEFAULT_TCP_TIMEOUT = 30
 DEFAULT_UNIXSOCKET_TIMEOUT = 5
@@ -121,8 +122,9 @@ def display(sp):
 
   print "  # Chunk_Size  Max_age   Pages   Count   Full?  Evicted Evict_Time OOM     Used   Wasted"
 
-  for num, slab in slabs.iteritems():
+  for num in sorted(slabs.keys()):
     if num == 'total': continue
+    slab = slabs[num]
 
     is_slab_full = "yes" if slab['free_chunks_end'] == 0 else "no"
     wasted = (1.0 - float(slab['mem_requested']) / (float(slab['chunk_size']) * float(slab['number']))) * 100 if slab['number'] else 0.0
@@ -170,20 +172,58 @@ def sizes(sp):
   print "{0:10s} {1:>10s} {2:>10s} {3:10s}".format('Size', 'Items', 'Chunk_Size', 'Wasted')
 
   sizes = get_stats(sp, 'stats sizes')
-  for prop, val in sizes.iteritems():
+  for prop in sorted([int(key) for key in sizes.keys()]):
     size = int(prop)
+    val = sizes[str(prop)]
 
     chunk_size = 96.0
     while chunk_size * growth_factor < size:  chunk_size *= growth_factor
     chunk_size *= growth_factor
     if chunk_size * growth_factor > item_size_max:  chunk_size = float(item_size_max)
 
-    wasted = (1.0 - float(size) / chunk_size) * 100;
+    wasted = (1.0 - float(size) / chunk_size) * 100
     
     print "{0:10s} {1:10d} {2:>10s} {3:9.0f}%".format(descriptive_size(size), int(val), descriptive_size(chunk_size), wasted)
 
   return
 
+
+def removeexp(sp):
+  slabs = slabs_stats(sp)
+  stats = get_stats(sp)
+  never_expire_ts = int(stats['time']) - int(stats['uptime'])
+
+  print "      {0:40s} {1:>10s} {2:>10s} {3:>8s}".format('Key', 'Status', 'Size', 'Waste')
+
+  for num, slab in slabs.iteritems():
+    if num == 'total':  continue
+
+    if slab['number'] == 0:  continue
+
+    lines = send_and_receive(sp, "stats cachedump {0} {1}".format(str(num), str(slab['number'])));
+    for line in lines:
+      item_stat = re.match('^ITEM ([^\s]+) \[(\d+) b; (\d+) s\]', line)
+      if item_stat:
+        item_key, item_size, item_expiration = item_stat.groups()
+        item_expiration = int(item_expiration)
+
+        now = time.time()
+
+        wasted = (1.0 - float(item_size) / float(slab['chunk_size'])) * 100
+        if item_expiration == never_expire_ts:
+          status = '[never expire]'
+        elif now > item_expiration:
+          status = '[expired]'
+        else:
+          status = str(int(item_expiration - now))+'s left'
+
+        print "ITEM  {0:40s} {1:>10s} {2:>10s} {3:7.0f}%".format(item_key, status, item_size, wasted)
+
+        # Get expired value == remove expired value
+        if status == '[expired]':
+          send_and_receive(sp, "get "+item_key)
+
+  return
 
 
 # Default values
@@ -230,6 +270,8 @@ else:
     show_stats(sp, 'stats settings')
   elif mode == 'sizes':
     sizes(sp)
+  elif mode == 'removeexp':
+    removeexp(sp)
   else:
     display(sp)
 

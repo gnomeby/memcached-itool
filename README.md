@@ -1,7 +1,7 @@
 memcached-itool
 ===============
 
-The improved memcached-tool on PHP, Python and Ruby.
+The improved memcached-tool on PHP, Python.
 
 New advantages in comparison with default tool are:
 * *display* mode shows all slabs not only slabs with keys
@@ -16,8 +16,7 @@ New advantages in comparison with default tool are:
 
 #### Requirements:
 PHP 5.3 or
-Python 2.7 or
-Ruby 1.9
+Python 2.7
 
 #### Usage
     memcached-tool <host[:port] | /path/to/socket> [mode]
