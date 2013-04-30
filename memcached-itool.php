@@ -168,11 +168,6 @@ function slabs_stats($fp)
   $lines = send_and_receive($fp, 'stats items');
   foreach($lines as $line)
   {
-    if(!trim($line))
-      continue;
-    if(trim($line) == 'END')
-      break;
-
     $m = array();
     if(preg_match('/^STAT items:(\d+):(\w+) (\d+)/', $line, $m))
     {
