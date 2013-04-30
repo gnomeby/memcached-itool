@@ -219,6 +219,7 @@ function default_stats($fp)
       $stats[$property] = $value;
     }
   }
+  ksort($stats);
 
   return $stats;
 }
@@ -240,6 +241,7 @@ function settings_stats($fp)
       $stats[$property] = $value;
     }
   }
+  ksort($stats);
 
   return $stats;
 }
@@ -258,15 +260,15 @@ function display($fp)
     $is_slab_full = $slab['free_chunks_end'] == 0 ? "yes" : "no";
     $wasted = $slab['number'] ? (1.0 - (float)$slab['mem_requested'] / ($slab['chunk_size'] * $slab['number'])) * 100 : 0.0;
 
-    printf("%3d %10s %7ds %7d %7d %7s %8d %10d %3d %8s %7d%%".PHP_EOL, $num, descritive_size($slab['chunk_size']), $slab['age'], $slab['total_pages'], $slab['number'], $is_slab_full, 
-      $slab['evicted'], $slab['evicted_time'], $slab['outofmemory'], descritive_size($slab['mem_requested']), $wasted);
+    printf("%3d %10s %7ds %7d %7d %7s %8d %10d %3d %8s %7d%%".PHP_EOL, $num, descriptive_size($slab['chunk_size']), $slab['age'], $slab['total_pages'], $slab['number'], $is_slab_full, 
+      $slab['evicted'], $slab['evicted_time'], $slab['outofmemory'], descriptive_size($slab['mem_requested']), $wasted);
   }
 
   print PHP_EOL."Total:".PHP_EOL;
   foreach($slabs['total'] as $property=>$value)
   {
     if($property == 'total_malloced')
-      printf("%-15s %12s".PHP_EOL, $property, descritive_size($value));
+      printf("%-15s %12s".PHP_EOL, $property, descriptive_size($value));
     else
       printf("%-15s %12s".PHP_EOL, $property, $value);
   }
@@ -275,9 +277,9 @@ function display($fp)
   $pages = 1;
   for($chunk_size = 96; $chunk_size * $stats['growth_factor'] < $stats['item_size_max']; $chunk_size *= $stats['growth_factor'])
     $pages++;
-  printf("%-15s %12s (real %s - %s)".PHP_EOL, 'maxbytes', descritive_size($stats['maxbytes']), descritive_size(max($stats['item_size_max'] * $pages, $stats['maxbytes'])), descritive_size($stats['item_size_max'] * ($pages + $stats['maxbytes'] / $stats['item_size_max'] - 1)));
+  printf("%-15s %12s (real %s - %s)".PHP_EOL, 'maxbytes', descriptive_size($stats['maxbytes']), descriptive_size(max($stats['item_size_max'] * $pages, $stats['maxbytes'])), descriptive_size($stats['item_size_max'] * ($pages + $stats['maxbytes'] / $stats['item_size_max'] - 1)));
   
-  printf("%-15s %12s".PHP_EOL, 'item_size_max', descritive_size($stats['item_size_max']));
+  printf("%-15s %12s".PHP_EOL, 'item_size_max', descriptive_size($stats['item_size_max']));
   printf("%-15s %12s".PHP_EOL, 'evictions', $stats['evictions']);
   printf("%-15s %12s".PHP_EOL, 'growth_factor', $stats['growth_factor']);
 
@@ -383,7 +385,7 @@ function sizes($fp)
 
       $wasted = (1.0 - $size / $chunk_size) * 100;
 
-      printf("%-10s %10d %10s %9.0f%%".PHP_EOL, descritive_size($size), $values, descritive_size($chunk_size), $wasted);
+      printf("%-10s %10d %10s %9.0f%%".PHP_EOL, descriptive_size($size), $values, descriptive_size($chunk_size), $wasted);
 
       $sizes[$size] = $values;
     }
@@ -439,7 +441,7 @@ function removeexp($fp)
 }
 
 
-function descritive_size($size)
+function descriptive_size($size)
 {
   if($size >= 1024*1024)
     return sprintf('%.1fM', (float)$size/(1024*1024));
