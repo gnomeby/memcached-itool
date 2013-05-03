@@ -9,6 +9,7 @@ const DEFAULT_UNIXSOCKET_TIMEOUT = 5;
 
 const DUMPMODE_ONLYKEYS = 0;
 const DUMPMODE_KEYVALUES = 1;
+const REMOVEMODE_EXPIRED = 2;
 
 $params = $_SERVER['argv'];
 
@@ -61,11 +62,11 @@ if (!$fp)
 switch($mode)
 {
   case 'settings':
-    settings($fp);
+    show_stats($fp, 'stats settings');
     break;
 
   case 'stats':
-    stats($fp);
+    show_stats($fp, 'stats');
     break;
 
   case 'sizes':
@@ -73,15 +74,15 @@ switch($mode)
     break;
 
   case 'dumpkeys':
-    dump($fp);
+    iterkeys($fp, DUMPMODE_ONLYKEYS);
     break;
 
   case 'removeexp':
-    removeexp($fp);
+    iterkeys($fp, REMOVEMODE_EXPIRED);
     break;
 
   case 'dump':
-    dump($fp, DUMPMODE_KEYVALUES);
+    iterkeys($fp, DUMPMODE_KEYVALUES);
     break;
 
   case 'display':
@@ -198,11 +199,11 @@ function slabs_stats($fp)
 }
 
 
-function default_stats($fp)
+function get_stats($fp, $command = 'stats')
 {
   $stats = array();
 
-  $lines = send_and_receive($fp, 'stats');
+  $lines = send_and_receive($fp, $command);
   foreach($lines as $line)
   {
     $m = array();
@@ -236,7 +237,6 @@ function settings_stats($fp)
       $stats[$property] = $value;
     }
   }
-  ksort($stats);
 
   return $stats;
 }
@@ -281,18 +281,10 @@ function display($fp)
 }
 
 
-function stats($fp)
+function show_stats($fp, $command = 'stats')
 {
-  $stats = default_stats($fp);
-
-  printf ("%24s %15s".PHP_EOL, "Field", "Value");
-  foreach($stats as $property => $value)
-    printf ("%24s %15s".PHP_EOL, $property, $value);
-}
-
-function settings($fp)
-{
-  $stats = settings_stats($fp);
+  $stats = get_stats($fp, $command);
+  ksort($stats);
 
   printf ("%24s %15s".PHP_EOL, "Field", "Value");
   foreach($stats as $property => $value)
@@ -300,10 +292,10 @@ function settings($fp)
 }
 
 
-function dump($fp, $dumpmode = DUMPMODE_ONLYKEYS)
+function iterkeys($fp, $dumpmode = DUMPMODE_ONLYKEYS)
 {
   $slabs = slabs_stats($fp);
-  $stats = default_stats($fp);
+  $stats = get_stats($fp, 'stats');
   ksort($slabs);
 
   printf("      %-40s %20s %10s %8s".PHP_EOL, 'Key', 'Expire status', 'Size', 'Waste');
@@ -318,7 +310,7 @@ function dump($fp, $dumpmode = DUMPMODE_ONLYKEYS)
       foreach($lines as $line)
       {
         $m = array();
-        if(preg_match('/^ITEM ([^\s]+) \[(.*); (\d+) s\]/', $line, $m))
+        if(preg_match('/^ITEM ([^\s]+) \[(\d+) b; (\d+) s\]/', $line, $m))
         {
           $key = $m[1];
           $size = $m[2];
@@ -349,6 +341,12 @@ function dump($fp, $dumpmode = DUMPMODE_ONLYKEYS)
               printf("VALUE %-40s flags=%X".PHP_EOL, $key, $flags);
               printf("%s".PHP_EOL, $data);
             }
+          }
+
+          // Get value
+          if($dumpmode == REMOVEMODE_EXPIRED && $status == '[expired]')
+          {
+            $lines = send_and_receive($fp, "get {$key}");
           }
         }
       }
@@ -385,55 +383,6 @@ function sizes($fp)
       $sizes[$size] = $values;
     }
   }
-}
-
-
-function removeexp($fp)
-{
-  $slabs = slabs_stats($fp);
-  $stats = default_stats($fp);
-  ksort($slabs);
-
-  printf("      %-40s %10s %10s %8s".PHP_EOL, 'Key', 'Status', 'Size', 'Waste');
-  foreach($slabs as $num => $slab) 
-  {
-    if($num == 'total')
-      continue;
-
-    if($slab['number'])
-    {
-      $lines = send_and_receive($fp, "stats cachedump {$num} {$slab['number']}");
-      foreach($lines as $line)
-      {
-        $m = array();
-        if(preg_match('/^ITEM ([^\s]+) \[(.*); (\d+) s\]/', $line, $m))
-        {
-          $key = $m[1];
-          $size = $m[2];
-
-          $now = time();
-
-          $waste = (1.0 - (float)$size / $slab['chunk_size']) * 100;
-          $expiration_time = $m[3];
-          if($expiration_time == $stats['time'] - $stats['uptime'])
-            $status = '[never expire]';
-          elseif($now > $expiration_time)
-            $status = '[expired]';
-          else
-            $status = ($expiration_time - $now).'s left';
-
-          printf("ITEM  %-40s %10s %10s %7.0f%%".PHP_EOL, $key, $status, $size, $waste);
-
-          // Get value
-          if($status == '[expired]')
-          {
-            $lines = send_and_receive($fp, "get {$key}");
-          }
-        }
-      }
-    }
-  }
-
 }
 
 

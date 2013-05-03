@@ -9,6 +9,11 @@ import time
 DEFAULT_TCP_TIMEOUT = 30
 DEFAULT_UNIXSOCKET_TIMEOUT = 5
 
+DUMPMODE_ONLYKEYS = 0
+DUMPMODE_KEYVALUES = 1
+REMOVEMODE_EXPIRED = 2
+
+
 def myhelp():
   print """
 Usage: memcached-tool <host[:port] | /path/to/socket> [mode]
@@ -188,16 +193,17 @@ def sizes(sp):
   return
 
 
-def removeexp(sp):
+def iterkeys(sp, dumpmode = DUMPMODE_ONLYKEYS):
   slabs = slabs_stats(sp)
   stats = get_stats(sp)
   never_expire_ts = int(stats['time']) - int(stats['uptime'])
 
-  print "      {0:40s} {1:>10s} {2:>10s} {3:>8s}".format('Key', 'Status', 'Size', 'Waste')
+  print "      {0:40s} {1:>20s} {2:>10s} {3:>8s}".format('Key', 'Expire status', 'Size', 'Waste')
 
-  for num, slab in slabs.iteritems():
+  for num in sorted(slabs.keys()):
     if num == 'total':  continue
 
+    slab = slabs[num]
     if slab['number'] == 0:  continue
 
     lines = send_and_receive(sp, "stats cachedump {0} {1}".format(str(num), str(slab['number'])));
@@ -217,13 +223,23 @@ def removeexp(sp):
         else:
           status = str(int(item_expiration - now))+'s left'
 
-        print "ITEM  {0:40s} {1:>10s} {2:>10s} {3:7.0f}%".format(item_key, status, item_size, wasted)
+        print "ITEM  {0:40s} {1:>20s} {2:>10s} {3:7.0f}%".format(item_key, status, item_size, wasted)
 
         # Get expired value == remove expired value
-        if status == '[expired]':
+        if dumpmode == REMOVEMODE_EXPIRED and status == '[expired]':
           send_and_receive(sp, "get "+item_key)
 
+        if dumpmode == DUMPMODE_KEYVALUES and status != '[expired]':
+          lines = send_and_receive(sp, "get " + item_key)
+          if len(lines):
+            item_info, item_data = lines
+            item_info_stat = re.match('^VALUE ([^\s]+) (\d+) (\d+)', item_info)
+            flags = int(item_info_stat.group(2))
+            print "VALUE {0:40s} flags={1:X}".format(item_key, flags)
+            print "{0:s}".format(item_data)
+
   return
+
 
 
 # Default values
@@ -271,7 +287,11 @@ else:
   elif mode == 'sizes':
     sizes(sp)
   elif mode == 'removeexp':
-    removeexp(sp)
+    iterkeys(sp, REMOVEMODE_EXPIRED)
+  elif mode == 'dump':
+    iterkeys(sp, DUMPMODE_KEYVALUES)
+  elif mode == 'dumpkeys':
+    iterkeys(sp, DUMPMODE_ONLYKEYS)
   else:
     display(sp)
 
