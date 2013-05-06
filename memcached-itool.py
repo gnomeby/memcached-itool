@@ -304,7 +304,7 @@ modes = ('display', 'dumpkeys', 'dump', 'removeexp', 'settings', 'stats',
 # Check params
 if len(sys.argv) < 2 or mode not in modes:
     myhelp()
-    exit()
+    sys.exit()
 
 
 # Connect to memcached
@@ -316,7 +316,7 @@ try:
         sp.connect(socketpath)
 except socket.error as msg:
     print msg
-    exit()
+    sys.exit()
 else:
     if mode == 'stats':
         show_stats(sp)
@@ -336,4 +336,4 @@ else:
     sp.close()
 
 
-exit()
+sys.exit()

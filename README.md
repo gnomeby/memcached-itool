@@ -2,6 +2,7 @@ memcached-itool
 ===============
 
 The improved memcached-tool on PHP, Python.
+Also dist64 contains compiled binary for x86_64 platform.
 
 New advantages in comparison with default tool are:
 * *display* mode shows all slabs not only slabs with keys
