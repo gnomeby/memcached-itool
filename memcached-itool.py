@@ -16,7 +16,7 @@ REMOVEMODE_EXPIRED = 2
 
 def myhelp():
     print """
-Usage: memcached-tool <host[:port] | /path/to/socket> [mode]
+Usage: memcached-itool <host[:port] | /path/to/socket> [mode]
 
 Modes:
   display    # shows slabs information (display is default mode)

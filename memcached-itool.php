@@ -98,15 +98,15 @@ exit;
 function help()
 {
   echo <<<HELP
- Usage: memcached-tool <host[:port] | /path/to/socket> [mode]
+ Usage: memcached-itool <host[:port] | /path/to/socket> [mode]
 
-	memcached-tool localhost:11211 display    # shows slabs information (display is default mode)
-	memcached-tool localhost:11211 dumpkeys   # dumps only keys names
-	memcached-tool localhost:11211 dump       # dumps keys and values, values only for non expired keys
-	memcached-tool localhost:11211 removeexp  # remove expired keys (you may need run several times)
-	memcached-tool localhost:11211 settings   # shows memcached settings
-	memcached-tool localhost:11211 sizes      # group keys by sizes and show how many we waste memory
-	memcached-tool localhost:11211 stats      # shows general stats
+	memcached-itool localhost:11211 display    # shows slabs information (display is default mode)
+	memcached-itool localhost:11211 dumpkeys   # dumps only keys names
+	memcached-itool localhost:11211 dump       # dumps keys and values, values only for non expired keys
+	memcached-itool localhost:11211 removeexp  # remove expired keys (you may need run several times)
+	memcached-itool localhost:11211 settings   # shows memcached settings
+	memcached-itool localhost:11211 sizes      # group keys by sizes and show how many we waste memory
+	memcached-itool localhost:11211 stats      # shows general stats
 
 Warning! dumpkeys, dump, removeexp and sizes modes *will* lock up your cache! It iterates over *every item* and examines the size. 
 While the operation is fast, if you have many items you could prevent memcached from serving requests for several seconds.

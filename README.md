@@ -14,6 +14,7 @@ New advantages in comparison with default tool are:
 * New *sizes* mode groups keys by size and shows percent of wasted memory in chunks
 * New *settings* mode shows memcached setting during startup
 
+![gnomeby avatar](http://niakhaichyk.org/andrey/img/lisa_small_32.png)
 
 #### Requirements:
 PHP 5.3 or
